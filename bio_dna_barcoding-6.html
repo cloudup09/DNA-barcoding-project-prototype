@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNA Barcoding Simulator</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #eef5f0;
+        color: #17352a;
+    }
+    .container {
+        width: min(1050px, 94%);
+        margin: 30px auto;
+    }
+    h1 { margin-bottom: 5px; }
+    .subtitle { color: #527064; margin-top: 0; }
+    .card {
+        background: white;
+        border-radius: 14px;
+        padding: 22px;
+        margin: 18px 0;
+        box-shadow: 0 5px 18px rgba(0,0,0,.08);
+    }
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 7px;
+    }
+    input, select, button {
+        width: 100%;
+        padding: 11px;
+        border-radius: 8px;
+        border: 1px solid #b9cbc2;
+        font-size: 15px;
+    }
+    button {
+        cursor: pointer;
+        border: 0;
+        font-weight: bold;
+        background: #236b4d;
+        color: white;
+    }
+    button:hover { background: #18533b; }
+    .buttons {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 16px;
+    }
+    canvas {
+        width: 100%;
+        height: 300px;
+        border: 1px solid #c8d8d0;
+        border-radius: 10px;
+        background: #fbfdfc;
+    }
+    .result {
+        padding: 15px;
+        border-radius: 9px;
+        background: #edf7f1;
+        margin-top: 15px;
+        font-weight: bold;
+    }
+    .error { background: #fff0f0; color: #9b2226; }
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .stat {
+        background: #f4f8f6;
+        padding: 13px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .stat strong { display: block; font-size: 20px; margin-top: 4px; }
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+    }
+    .legend span {
+        padding: 7px 10px;
+        border-radius: 6px;
+        font-weight: bold;
+    }
+    .a { background:#f7caca; }
+    .t { background:#c9dcff; }
+    .c { background:#c9efcf; }
+    .g { background:#ead1ff; }
+    small { color: #60786e; }
+    @media(max-width:700px) {
+        .grid, .buttons, .stats { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>DNA Barcoding Simulator</h1>
+        <p class="subtitle">Bio-inspired digital pattern simulation for species identification</p>
+    </div>
+
+    <div class="card">
+        <h2>1. Input DNA Data</h2>
+        <div class="grid">
+            <div>
+                <label for="species">Species</label>
+                <input id="species" type="text" placeholder="Enter human, lion, butterfly, or panda">
+            </div>
+            <div>
+                <label for="mapping">Base mapping</label>
+                <select id="mapping">
+                    <option value="ATCG">A=00, T=01, C=10, G=11</option>
+                    <option value="ATGC">A=00, T=01, G=10, C=11</option>
+                    <option value="ACGT">A=00, C=01, G=10, T=11</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-top:16px">
+            <label for="dna">DNA sequence</label>
+            <input id="dna" maxlength="80" placeholder="Example: ATGCGTACGTTAGC">
+            <small>Enter only A, T, C and G. The simulator will create a visual barcode from the sequence.</small>
+        </div>
+
+        <div class="buttons">
+            <button onclick="generateBarcode()">Generate</button>
+            <button onclick="verifyBarcode()">Verify</button>
+            <button onclick="resimulate()">Re-simulate</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>2. DNA Barcode Visualization</h2>
+        <canvas id="barcodeCanvas" width="1000" height="180"></canvas>
+
+        <div class="legend">
+            <span class="a">A — Adenine</span>
+            <span class="t">T — Thymine</span>
+            <span class="c">C — Cytosine</span>
+            <span class="g">G — Guanine</span>
+        </div>
+
+        <div class="stats">
+            <div class="stat">Sequence length<strong id="length">0</strong></div>
+            <div class="stat">Binary length<strong id="binaryLength">0</strong></div>
+            <div class="stat">GC content<strong id="gcContent">0%</strong></div>
+        </div>
+
+        <div id="result" class="result">Enter a DNA sequence and click Generate.</div>
+    </div>
+
+    <div class="card">
+        <h2>How the Algorithm Works</h2>
+        <ol>
+            <li>The DNA sequence is checked to ensure that it contains only A, T, C and G.</li>
+            <li>Each base is assigned a 2-bit binary value according to the selected mapping.</li>
+            <li>The binary values are converted into colored blocks to create a digital DNA barcode.</li>
+            <li>The generated barcode is compared with the simulator's reference database.</li>
+            <li>The verification result reports the closest matching reference sequence.</li>
+        </ol>
+    </div>
+</div>
+
+<script>
+const database = {
+
+    "human":
+        "ATGCGTACTGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTACCATGCGTATGCGTAC",
+
+    "lion":
+        "GCCATGTACCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTAATGTACCGCCATGTA",
+
+    "butterfly":
+        "CGTACGGAGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGAAGGCATGCGTACGGA",
+
+    "panda":
+        "TTAACGCGTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCGGCGCAATTTAACGCG"
+
+};
+
+const colors = {
+    A: "#e99b9b",
+    T: "#9bbcf0",
+    C: "#91d29a",
+    G: "#c49be8"
+};
+
+function getMapping() {
+    const order = document.getElementById("mapping").value;
+    const map = {};
+    order.split("").forEach((base, index) => {
+        map[base] = index.toString(2).padStart(2, "0");
+    });
+    return map;
+}
+
+function cleanSequence() {
+    return document.getElementById("dna").value.trim().toUpperCase();
+}
+
+function validate(seq) {
+    return seq.length > 0 && /^[ATCG]+$/.test(seq);
+}
+
+function sequenceToBinary(seq) {
+    const map = getMapping();
+    return seq.split("").map(base => map[base]).join("");
+}
+
+function drawBarcode(seq) {
+    const canvas = document.getElementById("barcodeCanvas");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const colors = {A:"#e99b9b", T:"#9bbcf0", C:"#91d29a", G:"#c49be8"};
+    const cols = 75;
+    const margin = 20;
+    const top = 45;
+    const blockW = (canvas.width - 2 * margin) / cols;
+    const blockH = 18;
+
+    ctx.fillStyle = "#17352a";
+    ctx.font = "bold 14px Arial";
+    ctx.fillText("Digital DNA Barcode (" + seq.length + " bases)", margin, 25);
+
+    seq.split("").forEach((base, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        ctx.fillStyle = colors[base];
+        ctx.fillRect(margin + col * blockW, top + row * blockH, Math.max(1, blockW - 1), blockH - 2);
+    });
+}
+
+function updateStats(seq) {
+    document.getElementById("length").textContent = seq.length;
+    document.getElementById("binaryLength").textContent = seq.length * 2;
+
+    const gc = seq.length
+        ? ((seq.split("").filter(x => x === "G" || x === "C").length / seq.length) * 100)
+        : 0;
+
+    document.getElementById("gcContent").textContent = gc.toFixed(1) + "%";
+}
+
+function generateBarcode() {
+    const species = document.getElementById("species").value.trim().toLowerCase();
+    const result = document.getElementById("result");
+
+    if (!database[species]) {
+        result.className = "result error";
+        result.textContent = "Species not found. Enter human, lion, butterfly, or panda.";
+        return;
+    }
+
+    const seq = database[species];
+    document.getElementById("dna").value = seq;
+    drawBarcode(seq);
+    updateStats(seq);
+
+    result.className = "result";
+    result.innerHTML = "<strong>" + species.toUpperCase() + "</strong> DNA barcode generated successfully.";
+}
+
+function hammingDistance(a, b) {
+    const length = Math.max(a.length, b.length);
+    let distance = Math.abs(a.length - b.length);
+
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+        if (a[i] !== b[i]) distance++;
+    }
+    return distance;
+}
+
+function verifyBarcode() {
+    const seq = cleanSequence();
+    const result = document.getElementById("result");
+
+    if (!validate(seq)) {
+        result.className = "result error";
+        result.textContent = "Cannot verify. Please enter a valid DNA sequence first.";
+        return;
+    }
+
+    let bestSpecies = "";
+    let bestDistance = Infinity;
+
+    for (const species in database) {
+        const distance = hammingDistance(seq, database[species]);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            bestSpecies = species;
+        }
+    }
+
+    const reference = database[bestSpecies];
+    const maxLength = Math.max(seq.length, reference.length);
+    const similarity = Math.max(0, (1 - bestDistance / maxLength) * 100);
+
+    if (seq === reference) {
+        result.className = "result";
+        result.innerHTML = "✓ Exact match: <strong>" + bestSpecies +
+            "</strong><br>Reference barcode and input sequence are identical.";
+    } else if (similarity >= 70) {
+        result.className = "result";
+        result.innerHTML = "≈ Closest match: <strong>" + bestSpecies +
+            "</strong><br>Similarity: " + similarity.toFixed(1) +
+            "% (" + bestDistance + " difference(s)).";
+    } else {
+        result.className = "result error";
+        result.innerHTML = "No strong database match.<br>Closest reference: <strong>" +
+            bestSpecies + "</strong> with " + similarity.toFixed(1) + "% similarity.";
+    }
+}
+
+function resimulate() {
+    const options = [
+        "ATGCGTACGTTAGC",
+        "GGCATTAACCGTGA",
+        "ATGCCGTAGCTAAC",
+        "CGTATGCAAGTCGT",
+        "AAGTCCGTACGATG",
+        "CGGATACCTGGTCA"
+    ];
+
+    const randomSeq = options[Math.floor(Math.random() * options.length)];
+    document.getElementById("dna").value = randomSeq;
+
+    generateBarcode();
+}
+
+document.getElementById("dna").addEventListener("input", () => {
+    const seq = cleanSequence();
+    if (validate(seq)) {
+        drawBarcode(seq);
+        updateStats(seq);
+    }
+});
+</script>
+</body>
+</html>
